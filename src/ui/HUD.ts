@@ -1,145 +1,155 @@
-import Phaser from 'phaser';
-import { PlayerStats, Inventory, QuestState } from '../utils/types';
-import { C } from '../utils/colors';
+import { ITEM_NAMES, type ItemId } from '../utils/types';
+import type { Inventory } from '../systems/Inventory';
+import type { Survival } from '../systems/Survival';
 
 export class HUD {
-  private scene: Phaser.Scene;
-  private container: Phaser.GameObjects.Container;
-  private hpBar!: Phaser.GameObjects.Graphics;
-  private xpBar!: Phaser.GameObjects.Graphics;
-  private hpText!: Phaser.GameObjects.Text;
-  private levelText!: Phaser.GameObjects.Text;
-  private matText!: Phaser.GameObjects.Text;
-  private tribeText!: Phaser.GameObjects.Text;
-  private objectiveText!: Phaser.GameObjects.Text;
-  private zoneText!: Phaser.GameObjects.Text;
-  private hintText!: Phaser.GameObjects.Text;
+  private toastTimer = 0;
 
-  constructor(scene: Phaser.Scene) {
-    this.scene = scene;
-    this.container = scene.add.container(0, 0).setScrollFactor(0).setDepth(100);
-
-    // backdrop panels
-    const topBg = scene.add.rectangle(0, 0, 960, 72, C.black, 0.55).setOrigin(0, 0);
-    const botBg = scene.add.rectangle(0, 600, 960, 40, C.black, 0.55).setOrigin(0, 0);
-    this.container.add([topBg, botBg]);
-
-    this.hpBar = scene.add.graphics();
-    this.xpBar = scene.add.graphics();
-    this.container.add([this.hpBar, this.xpBar]);
-
-    this.hpText = scene.add.text(16, 10, '', {
-      fontFamily: 'Georgia',
-      fontSize: '14px',
-      color: '#e8dcc8',
-    });
-    this.levelText = scene.add.text(16, 42, '', {
-      fontFamily: 'Georgia',
-      fontSize: '13px',
-      color: '#d4af37',
-    });
-    this.matText = scene.add.text(280, 12, '', {
-      fontFamily: 'Georgia',
-      fontSize: '13px',
-      color: '#e8dcc8',
-    });
-    this.tribeText = scene.add.text(280, 42, '', {
-      fontFamily: 'Georgia',
-      fontSize: '13px',
-      color: '#c41e3a',
-    });
-    this.objectiveText = scene.add.text(520, 12, '', {
-      fontFamily: 'Georgia',
-      fontSize: '13px',
-      color: '#e8dcc8',
-      wordWrap: { width: 420 },
-    });
-    this.zoneText = scene.add.text(480, 610, '', {
-      fontFamily: 'Georgia',
-      fontSize: '14px',
-      color: '#d4af37',
-    }).setOrigin(0.5, 0);
-    this.hintText = scene.add.text(16, 610, 'WASD move · SPACE/Click attack · SHIFT block · E interact · ESC save', {
-      fontFamily: 'Georgia',
-      fontSize: '11px',
-      color: '#8a7a6a',
-    });
-
-    this.container.add([
-      this.hpText,
-      this.levelText,
-      this.matText,
-      this.tribeText,
-      this.objectiveText,
-      this.zoneText,
-      this.hintText,
-    ]);
+  constructor() {
+    document.getElementById('btn-close-inv')?.addEventListener('click', () => this.setInventoryOpen(false));
   }
 
-  update(
-    stats: PlayerStats,
-    inv: Inventory,
-    tribeCount: number,
-    quests: QuestState,
-    zoneName: string,
-    craftedSpear: boolean
-  ): void {
-    // HP bar
-    this.hpBar.clear();
-    this.hpBar.fillStyle(C.hpBg);
-    this.hpBar.fillRect(16, 28, 180, 10);
-    this.hpBar.fillStyle(C.hp);
-    this.hpBar.fillRect(16, 28, 180 * Math.max(0, stats.hp / stats.maxHp), 10);
-    if (stats.maxShield > 0) {
-      this.hpBar.fillStyle(0x6688aa, 0.7);
-      this.hpBar.fillRect(16, 28, 180 * Math.min(1, stats.shield / stats.maxShield) * 0.3, 10);
+  showGameUI(show: boolean) {
+    document.getElementById('hud')?.classList.toggle('visible', show);
+    const touch = document.getElementById('touch');
+    const isFine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    touch?.classList.toggle('visible', show && !isFine);
+  }
+
+  hideTitle() {
+    document.getElementById('title-screen')?.classList.remove('active');
+    (document.getElementById('title-screen') as HTMLElement).style.display = 'none';
+  }
+
+  toast(msg: string, sec = 2.4) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'block';
+    this.toastTimer = sec;
+  }
+
+  updateToast(dt: number) {
+    if (this.toastTimer <= 0) return;
+    this.toastTimer -= dt;
+    if (this.toastTimer <= 0) {
+      const el = document.getElementById('toast');
+      if (el) el.style.display = 'none';
     }
-
-    // XP bar
-    this.xpBar.clear();
-    this.xpBar.fillStyle(0x3a3020);
-    this.xpBar.fillRect(16, 56, 180, 6);
-    this.xpBar.fillStyle(C.xp);
-    this.xpBar.fillRect(16, 56, 180 * Math.min(1, stats.xp / stats.xpToNext), 6);
-
-    this.hpText.setText(`HP ${Math.ceil(stats.hp)} / ${stats.maxHp}`);
-    this.levelText.setText(`LVL ${stats.level}  ·  DMG ${stats.damage}${craftedSpear ? ' ▲' : ''}  ·  SHD ${stats.maxShield}`);
-    this.matText.setText(
-      `Bronze Scrap: ${inv.bronze_scrap}   Herb: ${inv.herb}   Wood: ${inv.wood}   Bronze: ${inv.bronze}`
-    );
-    this.tribeText.setText(`Sparta Tribe: ${tribeCount} warrior${tribeCount === 1 ? '' : 's'}`);
-    this.objectiveText.setText(`OBJECTIVE\n${this.currentObjective(quests)}`);
-    this.zoneText.setText(`— ${zoneName} —`);
   }
 
-  private currentObjective(q: QuestState): string {
-    if (!q.gatheredMaterials) return '1/4 Gather materials in the Wilds (scrap, herb, wood)';
-    if (!q.recruitedTwo) return '2/4 Recruit 2 followers (rescue NPC in mountains + hire at camp)';
-    if (!q.clearedOutpost) return '3/4 Clear Mom Tribe grunts at the Outpost';
-    if (!q.defeatedQueen) return '4/4 Defeat the War-Queen at Mom Tribe Outpost';
-    return 'Victory — the outpost falls. Sparta rises.';
+  setObjective(text: string) {
+    const el = document.getElementById('hud-obj');
+    if (el) el.textContent = text;
   }
 
-  showToast(msg: string): void {
-    const t = this.scene.add
-      .text(480, 320, msg, {
-        fontFamily: 'Georgia',
-        fontSize: '18px',
-        color: '#d4af37',
-        backgroundColor: '#000000aa',
-        padding: { x: 16, y: 10 },
-        align: 'center',
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(200);
-    this.scene.tweens.add({
-      targets: t,
-      alpha: 0,
-      y: 280,
-      duration: 1800,
-      ease: 'Power2',
-      onComplete: () => t.destroy(),
+  update(survival: Survival, inv: Inventory, zone: string) {
+    const s = survival.stats;
+    const set = (id: string, text: string) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+    const bar = (id: string, v: number, max: number) => {
+      const el = document.getElementById(id) as HTMLElement | null;
+      if (el) el.style.width = `${Math.max(0, Math.min(100, (v / max) * 100))}%`;
+    };
+    set('v-hp', `${Math.ceil(s.health)}`);
+    set('v-stam', `${Math.ceil(s.stamina)}`);
+    set('v-food', `${Math.ceil(s.food)}`);
+    set('v-water', `${Math.ceil(s.water)}`);
+    bar('b-hp', s.health, s.maxHealth);
+    bar('b-stam', s.stamina, s.maxStamina);
+    bar('b-food', s.food, s.maxFood);
+    bar('b-water', s.water, s.maxWater);
+    set('v-lvl', String(inv.level));
+    set('v-xp', String(Math.floor(inv.xp)));
+    set('v-xpn', String(inv.xpToNext));
+    set('v-zone', zone);
+    this.renderHotbar(inv);
+  }
+
+  renderHotbar(inv: Inventory) {
+    const root = document.getElementById('hotbar');
+    if (!root) return;
+    root.innerHTML = '';
+    inv.hotbar.forEach((id, i) => {
+      const slot = document.createElement('div');
+      slot.className = 'slot' + (i === inv.selected ? ' active' : '');
+      const key = document.createElement('div');
+      key.className = 'key';
+      key.textContent = String(i + 1);
+      slot.appendChild(key);
+      if (id) {
+        const name = document.createElement('div');
+        name.textContent = shortName(id);
+        slot.appendChild(name);
+        const qty = document.createElement('div');
+        qty.className = 'qty';
+        qty.textContent = String(inv.count(id));
+        slot.appendChild(qty);
+      }
+      slot.addEventListener('click', () => {
+        inv.selected = i;
+        this.renderHotbar(inv);
+      });
+      root.appendChild(slot);
     });
   }
+
+  setInventoryOpen(open: boolean) {
+    document.getElementById('inv-panel')?.classList.toggle('open', open);
+  }
+
+  isInventoryOpen() {
+    return document.getElementById('inv-panel')?.classList.contains('open') ?? false;
+  }
+
+  renderInventory(
+    inv: Inventory,
+    onCraft: (id: ItemId) => void,
+    onUse: (id: ItemId) => void,
+    onEquip: (id: ItemId) => void,
+  ) {
+    const invList = document.getElementById('inv-list');
+    const craftList = document.getElementById('craft-list');
+    if (!invList || !craftList) return;
+    invList.innerHTML = '';
+    for (const row of inv.listNonZero()) {
+      const el = document.createElement('div');
+      el.className = 'row';
+      el.innerHTML = `<span>${row.name} ×${row.qty}</span>`;
+      const actions = document.createElement('div');
+      const use = document.createElement('button');
+      use.type = 'button';
+      use.textContent = 'Use';
+      use.onclick = () => onUse(row.id);
+      const eq = document.createElement('button');
+      eq.type = 'button';
+      eq.textContent = 'Hotbar';
+      eq.onclick = () => onEquip(row.id);
+      actions.append(use, eq);
+      el.appendChild(actions);
+      invList.appendChild(el);
+    }
+    craftList.innerHTML = '';
+    for (const r of inv.recipes()) {
+      const el = document.createElement('div');
+      el.className = 'row';
+      const cost = Object.entries(r.costs).map(([k, v]) => `${v} ${k}`).join(', ');
+      const lock = inv.unlocked(r) ? '' : ` (Lv ${r.engramLevel})`;
+      el.innerHTML = `<span>${r.name}${lock}<br/><small>${cost}${r.station && r.station !== 'hand' ? ' @ ' + r.station : ''}${r.placeable ? ' · placeable' : ''}</small></span>`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Craft';
+      btn.disabled = !inv.canCraft(r);
+      btn.onclick = () => onCraft(r.id);
+      el.appendChild(btn);
+      craftList.appendChild(el);
+    }
+  }
+}
+
+function shortName(id: ItemId): string {
+  const n = ITEM_NAMES[id];
+  return n.length > 7 ? n.slice(0, 6) + '…' : n;
 }
