@@ -8,6 +8,7 @@ It is separate from the web MVP’s GitHub Pages folder (`docs/`). Do not put th
 | [README.md](./README.md) (this file) | Install Epic Launcher + UE 5.4+, create the project, folder layout, web→UE mapping |
 | [GDD.md](./GDD.md) | Game Design Document (systems, fantasy, zones, original IP) |
 | [SYSTEMS.md](./SYSTEMS.md) | Blueprint / DataTable implementation checklist |
+| [BESTIARY.md](./BESTIARY.md) | Canon creature / champion / relic names (TCG + trailer + UE5) |
 
 **Web play (MVP):** https://abbytes.github.io/sparta-adamo/
 
